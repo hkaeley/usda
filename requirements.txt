@@ -1,0 +1,12 @@
+nltk
+notebook
+numpy
+pandas
+tqdm
+transformers
+pathtools
+pyyaml
+scikit-learn
+scipy
+torch
+wandb
