@@ -48,6 +48,8 @@ class Trainer():
             self.loss_function = torch.nn.CrossEntropyLoss()
         elif self.args.loss_func == "mse": #want to use mse for regression
             self.loss_function = torch.nn.MSELoss()
+        elif self.args.loss_func == "l1":
+            self.loss_function = torch.nn.L1Loss()
 
         tqdm_bar = tqdm(range(self.args.epochs))
 
