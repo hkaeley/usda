@@ -19,10 +19,10 @@ class Trainer():
     
     def build_dataset(self):
         if self.args.load_dataset == "True":
-            self.dataset = Dataset(self.args.filename, self.args.finbert_nutrients_filepath, load_dataset = True)
+            self.dataset = Dataset(self.args.filename, self.args.nutrients_filepath, load_dataset = True)
             self.dataset = self.dataset.load(self.args.dataset_load_path)
         else:
-            self.dataset = Dataset(self.args.filename, self.args.finbert_nutrients_filepath, self.args.load_dataset, load_dataset = False)
+            self.dataset = Dataset(self.args.filename, self.args.nutrients_filepath, load_dataset = False)
             self.dataset.save(self.args.dataset_save_path)
             
 
@@ -64,10 +64,11 @@ class Trainer():
                 self.optimizer.zero_grad() #reset opitmizer
 
                 batch_index = i + self.args.batch_size if i + self.args.batch_size <= len(self.train_data_x) else len(self.train_data_x)
-                input = torch.from_numpy(self.train_data_x[i:batch_index, :]).float().to(self.ags.device) #load training batch
+                input = torch.from_numpy(self.train_data_x[i:batch_index, :]).float().to(self.args.device) #load training batch
                 ground_truth = torch.from_numpy(self.train_data_y[i:batch_index, :]).float().to(self.args.device)
     
                 self.optimizer.zero_grad()
+                import pdb; pdb.set_trace()
 
                 if self.args.model in ["nutrition_mlp"]:
                     output = self.model(input)
@@ -140,6 +141,7 @@ class Trainer():
         # dir_acc = self.compute_dir_acc(y_true, y_pred, x_data)
         
         # return {'agg_loss': agg_loss, 'auc': auc, 'r2': r2_score(y_true, y_pred), 'dir_acc': dir_acc}
+        y_true, y_pred = [batch.tolist() for batch in y_true], [batch.tolist() for batch in y_pred]
         return {'agg_loss': agg_loss,'r2': r2_score(y_true, y_pred)}
 
 
@@ -149,65 +151,23 @@ class Trainer():
         y_pred = []
         y_true = []
 
-
         for i in range(0, len(x_data), self.args.batch_size): # iterate through batches of the dataset
             batch_index = i + self.args.batch_size if i + self.args.batch_size <= len(x_data) else len(x_data)
-            input = x_data[i:batch_index] #load training batch
-            label = y_data[i:batch_index]
-
-            #all the ways the data is configured below must be changed to account for hte fact that now input is basically multiple previous inputs
-                #and ground truth is now multiple ground truths
-                
-            #reduce dims of tgt and groundtruth and expected maybe?
-            ground_truth = np.array([[day["open"]] for day in label]) #want to predict opening price (1 x batch_size)
-            ground_truth = torch.from_numpy(ground_truth).float().to(self.args.device)
-            if self.dataset.raw_text:
-                src = np.array([[[day["ticker"], day["open"], day["high"], day["low"], day["close"], day["rsi"], day["ema"], day["sma"], day["macd"], day["headline_sentiment_score"]] for day in entry] for entry in input])
-                #cannot have string and float pytorch tensors so much use raw np array as input (transform to tensor after embedding received)
-            else:
-                src = np.array([[[day["ticker"], day["open"], day["high"], day["low"], day["close"], day["rsi"], day["ema"], day["sma"], day["macd"], day["headline_sentiment_score"]] for day in entry] for entry in input])
-                src = torch.from_numpy(src).float().to(self.args.device)
-
-            if self.args.model in ["stockformer",  "stockformer_gcn", "stockformer_finbert_backprop", "stockformer_gcn_finbert_backprop"]:
-                tgt = np.array([[[day["open"]] for day in entry] for entry in input])
-                tgt = torch.from_numpy(tgt).float().to(self.args.device)
-                #ground_truth = torch.cat((tgt[:,1:], ground_truth.unsqueeze(2)), dim=1)
-                # expected = np.concatenate((tgt[1:], ground_truth))
-                # expected = torch.from_numpy(expected).float().to(self.args.device)
-                output = self.model(src, tgt) #how to pass in input?  
-                    #dont need date for input, ticker name will use one hot encoding
-                #import pdb; pdb.set_trace()
-                output = output[:,-1]
-                # y_true.append(ground_truth) #use ground truth for appending
-                # y_pred.append(output) #take last day of the output becuase that is the only day we care about
-            elif self.args.model == "stockformer_encoder":
-                output = self.model(src) 
-                # y_true.append(ground_truth)
-                output = output[:,-1]
-                # y_pred.append(output)
-            elif self.args.model == "lstm":
-                output = self.model(src) 
-                # y_true.append(ground_truth)
-                # y_pred.append(output)
-            elif self.args.model in ["stockformer_n_tgt",  "stockformer_n_tgt_finbert_backprop"]:
-                tgt = np.array([[[day["open"]] for day in entry] for entry in input])
-                tgt = torch.from_numpy(tgt).float().to(self.args.device)
-                output = self.model(src, tgt) #output will be only closing for the last day instead of closings of [2,n] days
-                # y_true.append(ground_truth) #use ground truth for appending
-                output = output.squeeze(2)
-                # y_pred.append(output) #take last day of the output becuase that is the only day we care about
+            input = torch.from_numpy(x_data[i:batch_index, :]).float().to(self.args.device) #load training batch
+            ground_truth = torch.from_numpy(y_data[i:batch_index, :]).float().to(self.args.device)
+            if self.args.model in ["nutrition_mlp"]:
+                output = self.model(input)
             else:
                 raise ValueError('Model not recognized')
             output = output.detach().cpu()
             ground_truth = ground_truth.detach().cpu()
             for batch in ground_truth:
-                for entry in batch:
-                    y_true.append(entry)
+                y_true.append(batch) #for sklearn r2 func
             for batch in output:
-                for entry in batch:
-                    y_pred.append(entry)
+                y_pred.append(batch)
             torch.cuda.empty_cache()
-            
+        
+        # import pdb; pdb.set_trace()
         return self.metrics(y_true, y_pred, x_data)
 
     '''runs inference on training and testing sets and collects scores''' #only log to wanb during eval since thats only when u get a validation loss
@@ -290,7 +250,7 @@ class Trainer():
 if __name__ == "__main__":
         ap = ArgumentParser(description='The parameters for training.') 
         ap.add_argument('--filename', type=str, default="/content/dsusda/branded_food.csv", help="Load dataset pkl.")
-        ap.add_argument('--nutrients_file', type=str, default="/content/dsusda/food_nutrient.csv", help="Load dataset pkl.")
+        ap.add_argument('--nutrients_filepath', type=str, default="/content/dsusda/food_nutrient.csv", help="Load dataset pkl.")
         ap.add_argument('--load_dataset', type=str, default="False", help="Load dataset pkl.")
         ap.add_argument('--dataset_load_path', type=str, default="usda_ds.pkl", help="The path defining location to load dataset object from.")
         ap.add_argument('--dataset_save_path', type=str, default="usda_ds.pkl", help="The path defining location to save dataset object to.")
@@ -300,7 +260,7 @@ if __name__ == "__main__":
         ap.add_argument('--epochs', type=int, default = 25)
         ap.add_argument('--device', type=str, default = "cuda:0")
         ap.add_argument('--test_step', type=int, default = 5)
-        ap.add_argument('--batch_size', type=int, default = 4)
+        ap.add_argument('--batch_size', type=int, default = 8)
         ap.add_argument('--optimizer', type=str, default = "Adam")
         ap.add_argument('--loss_func', type=str, default = "mse")
         ap.add_argument('--learning_rate', type=float, default = 0.0001)

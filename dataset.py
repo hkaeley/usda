@@ -23,13 +23,13 @@ class Dataset():
         
         
         Y_tr = pd.read_csv(nutrients_file)
-
+        print(Y_tr.shape)
         nutrients_of_interest = {1003, 1004, 1005, 1008}
         Y_tr_interest = Y_tr[Y_tr["nutrient_id"].isin(nutrients_of_interest)][["fdc_id","nutrient_id","amount"]]
-
+        print(Y_tr_interest.columns)
 
         Ytr = Y_tr_interest.pivot_table(index='fdc_id', values='amount', columns='nutrient_id', aggfunc='sum', fill_value=0)
-
+        
 
         X_tr["ingredients"] = X_tr["ingredients"].astype(str)
 
@@ -50,7 +50,7 @@ class Dataset():
         print(X_tr_top[['fdc_id','ingredients']].shape)
 
         Xtr = X_tr_top[['fdc_id','ingredients']].pivot_table(index='fdc_id', columns='ingredients', aggfunc=len, fill_value=0)
-
+        print(X_tr.head(3)["ingredients"])
         categories = X_tr_top[['fdc_id','branded_food_category']].groupby('fdc_id').last()
 
         #Make sure both datasets only include the data they share. 
