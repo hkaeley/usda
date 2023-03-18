@@ -68,7 +68,6 @@ class Trainer():
                 ground_truth = torch.from_numpy(self.train_data_y[i:batch_index, :]).float().to(self.args.device)
     
                 self.optimizer.zero_grad()
-                import pdb; pdb.set_trace()
 
                 if self.args.model in ["nutrition_mlp"]:
                     output = self.model(input)
