@@ -108,14 +108,41 @@ class Trainer():
                 
     #     return num_same_sign / num_pairs
 
+    # def compute_loss(self, y_true, y_pred):
+    #     agg_loss = 0
+    #     import pdb; pdb.set_trace()
+    #     for gt, pred in zip(y_true, y_pred):
+
+    #         #compute loss
+    #         loss = self.loss_function(pred, gt)
+    #         agg_loss += loss.detach().cpu().item()
+    #     return agg_loss
+
+
     def compute_loss(self, y_true, y_pred):
         agg_loss = 0
+        #assuming labels are formatted as [protein, fat, carb, energy] 
+        protein_agg_loss = 0
+        fat_agg_loss = 0
+        carb_agg_loss = 0
+        energy_agg_loss = 0
         for gt, pred in zip(y_true, y_pred):
-
             #compute loss
-            loss = self.loss_function(pred, gt)
+            loss = self.loss_function(pred, gt) #by default it is the average of all output dims
             agg_loss += loss.detach().cpu().item()
-        return agg_loss
+
+            loss = self.loss_function(pred[0], gt[0])
+            protein_agg_loss += loss.detach().cpu().item()
+
+            loss = self.loss_function(pred[1], gt[1])
+            fat_agg_loss += loss.detach().cpu().item()
+
+            loss = self.loss_function(pred[2], gt[2])
+            carb_agg_loss += loss.detach().cpu().item()
+
+            loss = self.loss_function(pred[3], gt[3])
+            energy_agg_loss += loss.detach().cpu().item()
+        return agg_loss, protein_agg_loss, fat_agg_loss, carb_agg_loss, energy_agg_loss
 
     # def compute_dir_acc(self, y_true, y_pred, x_data):
     #     correct = 0
@@ -132,7 +159,7 @@ class Trainer():
 
     def metrics(self, y_true, y_pred, x_data):
         #compute agg loss
-        agg_loss = self.compute_loss(y_true, y_pred)
+        agg_loss, protein_agg_loss, fat_agg_loss, carb_agg_loss, energy_agg_loss = self.compute_loss(y_true, y_pred)
 
         #compute auc
         # auc = self.compute_roc_auc_score(y_true, y_pred)
@@ -143,7 +170,8 @@ class Trainer():
         
         # return {'agg_loss': agg_loss, 'auc': auc, 'r2': r2_score(y_true, y_pred), 'dir_acc': dir_acc}
         y_true, y_pred = [batch.tolist() for batch in y_true], [batch.tolist() for batch in y_pred]
-        return {'agg_loss': agg_loss,'r2': r2_score(y_true, y_pred)}
+        return {'agg_loss': agg_loss, "protein_agg_loss": protein_agg_loss, "fat_agg_loss": fat_agg_loss, "carb_agg_loss": carb_agg_loss, "energy_agg_loss": energy_agg_loss,
+                'r2': r2_score(y_true, y_pred)}
 
 
  
@@ -180,20 +208,36 @@ class Trainer():
         else:
             train_results = self.inference(self.train_data_x, self.train_data_y)
             train_results.update({'train_avg_loss': train_results["agg_loss"]/len(self.train_data_y)})
+            train_results.update({'train_protein_avg_loss': train_results["protein_agg_loss"]/len(self.train_data_y)})
+            train_results.update({'train_fat_avg_loss': train_results["fat_agg_loss"]/len(self.train_data_y)})
+            train_results.update({'train_carb_avg_loss': train_results["carb_agg_loss"]/len(self.train_data_y)})
+            train_results.update({'train_energy_avg_loss': train_results["energy_agg_loss"]/len(self.train_data_y)})
             # train_results.update({'train_auc': train_results["auc"]})
             train_results.update({'train_r2': train_results["r2"]})
             # train_results.update({'train_dir_acc': train_results["dir_acc"]})
-            print("train loss: " + str(train_results['train_avg_loss']))
+            print("train_avg_loss: " + str(train_results['train_avg_loss']))
+            print("train_protein_avg_loss: " + str(train_results['train_protein_avg_loss']))
+            print("train_fat_avg_loss " + str(train_results['train_fat_avg_loss']))
+            print("train_carb_avg_loss: " + str(train_results['train_carb_avg_loss']))
+            print("train_energy_avg_loss: " + str(train_results['train_energy_avg_loss']))
             # print("train auc: " + str(train_results['auc']))
             print("train r2: " + str(train_results['r2']))
             # print("train dir_acc: " + str(train_results['dir_acc']))
 
         val_results = self.inference(self.test_data_x, self.test_data_y)
         val_results.update({'test_avg_loss': val_results["agg_loss"]/len(self.test_data_y)})
+        val_results.update({'test_protein_avg_loss': val_results["protein_agg_loss"]/len(self.test_data_y)})
+        val_results.update({'test_fat_avg_loss': val_results["fat_agg_loss"]/len(self.test_data_y)})
+        val_results.update({'test_carb_avg_loss': val_results["carb_agg_loss"]/len(self.test_data_y)})
+        val_results.update({'test_energy_avg_loss': val_results["energy_agg_loss"]/len(self.test_data_y)})
         # val_results.update({'val_auc': val_results["auc"]})
         val_results.update({'val_r2': val_results["r2"]})
         # val_results.update({'val_dir_acc': val_results["dir_acc"]})
-        print("val loss: " + str(val_results['test_avg_loss']))
+        print("test_avg_loss: " + str(val_results['test_avg_loss']))
+        print("test_protein_avg_loss: " + str(val_results['test_protein_avg_loss']))
+        print("test_fat_avg_loss: " + str(val_results['test_fat_avg_loss']))
+        print("test_carb_avg_loss: " + str(val_results['test_carb_avg_loss']))
+        print("test_energy_avg_loss: " + str(val_results['test_energy_avg_loss']))
         # print("val auc: " + str(val_results['auc']))
         print("val r2: " + str(val_results['r2']))
         # print("val dir_acc: " + str(val_results['dir_acc']))
